@@ -195,7 +195,9 @@
 			{#if nodes.length === 0}
 				<p class="pointer-events-none absolute top-[40%] w-full text-center opacity-70">
 					Select a Parent node, type a name, and click '+ Add Node'<br />
-					(Hint: Start with a Central Root!)
+					(Hint: Start with a Central Root!)<br />
+					Remember ther can be only one central node <br/>
+					A node is added to the node that is selected. 
 				</p>
 			{/if}
 
