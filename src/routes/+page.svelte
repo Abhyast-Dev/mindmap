@@ -12,25 +12,40 @@
 
 	// --- Features & Functions ---
 
-	function addNewNode() {
-		if (!nodeName.trim()) return alert('Please enter a concept name!');
+	// 🚨 Refined Add Node with Single Root Enforcement & Radial Physics
+function addNewNode() {
+    if (!nodeName.trim()) return alert('Please enter a concept name!');
 
-		const id = Date.now();
-		let x, y;
+    // 1. Enforce Single Root
+    if (nodeType === 'type-central' && nodes.some(n => n.type === 'type-central')) {
+        return alert('Only one central root is allowed! Use branches to expand.');
+    }
 
-		if (nodeType === 'type-central') {
-			x = window.innerWidth / 2.5;
-			y = window.innerHeight / 3;
-		} else if (selectedNodeId) {
-			const parent = nodes.find((n) => n.id === selectedNodeId);
-			// Offset from parent
-			x = parent.x + 180;
-			y = parent.y + (Math.random() * 120 - 60);
-		} else {
-			x = 50;
-			y = 100;
-		}
+    const id = Date.now();
+    let x, y;
 
+    if (nodeType === 'type-central') {
+        x = window.innerWidth / 2;
+        y = window.innerHeight / 2.5; // Auto-centered
+    } else if (selectedNodeId) {
+        const parent = nodes.find((n) => n.id === selectedNodeId);
+        // 2. Angle-based distribution (Point 5)
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 160;
+        x = parent.x + Math.cos(angle) * radius;
+        y = parent.y + Math.sin(angle) * radius;
+    } else {
+        x = 100; y = 150;
+    }
+
+    const newNode = { id, name: nodeName, type: nodeType, x, y };
+    nodes = [...nodes, newNode]; // Safer Reactivity (Point 3)
+
+    if (selectedNodeId && nodeType !== 'type-central') {
+        connections = [...connections, { id: `c-${selectedNodeId}-${id}`, parentId: selectedNodeId, childId: id }];
+    }
+    nodeName = ''; 
+}
 		const newNode = { id, name: nodeName, type: nodeType, x, y };
 		
 		// Reactive push for Svelte 5
@@ -64,64 +79,60 @@
 
 	// --- Optimized Draggable Logic ---
 	// --- Unified Touch & Mouse Draggable Logic ---
+// 🚨 Safer Drag with Memory Cleanup (Point 2)
 function drag(nodeElement, nodeId) {
     let moving = false;
     let startX, startY, initialNodeX, initialNodeY;
 
+    function handleMove(e) {
+        if (!moving) return;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        const dx = clientX - startX;
+        const dy = clientY - startY;
+
+        // Immutable update for rock-solid reactivity
+        nodes = nodes.map(n => n.id === nodeId ? { ...n, x: initialNodeX + dx, y: initialNodeY + dy } : n);
+    }
+
+    function handleEnd() {
+        moving = false;
+        window.removeEventListener('mousemove', handleMove);
+        window.removeEventListener('mouseup', handleEnd);
+        window.removeEventListener('touchmove', handleMove);
+        window.removeEventListener('touchend', handleEnd);
+    }
+
     function handleStart(e) {
         if (e.target.closest('.delete-btn')) return;
         moving = true;
-
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
         const node = nodes.find(n => n.id === nodeId);
         if (node) {
-            startX = clientX;
-            startY = clientY;
-            initialNodeX = node.x;
-            initialNodeY = node.y;
+            startX = clientX; startY = clientY;
+            initialNodeX = node.x; initialNodeY = node.y;
         }
-        
-        if (e.type === 'touchstart') e.preventDefault(); 
+
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('mouseup', handleEnd);
+        window.addEventListener('touchmove', handleMove, { passive: false });
+        window.addEventListener('touchend', handleEnd);
+        if (e.type === 'touchstart') e.preventDefault();
     }
-
-    function handleMove(e) {
-        if (!moving) return;
-
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-        const node = nodes.find(n => n.id === nodeId);
-        if (node) {
-            const dx = clientX - startX;
-            const dy = clientY - startY;
-            node.x = initialNodeX + dx;
-            node.y = initialNodeY + dy;
-        }
-    }
-
-    function handleEnd() { moving = false; }
 
     nodeElement.addEventListener('mousedown', handleStart);
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('mouseup', handleEnd);
     nodeElement.addEventListener('touchstart', handleStart, { passive: false });
-    window.addEventListener('touchmove', handleMove, { passive: false });
-    window.addEventListener('touchend', handleEnd);
 
     return {
         destroy() {
             nodeElement.removeEventListener('mousedown', handleStart);
-            window.removeEventListener('mousemove', handleMove);
-            window.removeEventListener('mouseup', handleEnd);
             nodeElement.removeEventListener('touchstart', handleStart);
-            window.removeEventListener('touchmove', handleMove);
-            window.removeEventListener('touchend', handleEnd);
         }
     };
 }
-
 
 onMount(() => {
 		if ('serviceWorker' in navigator) {
@@ -188,9 +199,9 @@ onMount(() => {
 		<div id="canvas" class="relative h-full w-full">
 			{#if nodes.length === 0}
 				<p class="pointer-events-none absolute top-[40%] w-full text-center opacity-70">
-					Select a parent node, type a name, and click + Add Node <br />
-					(Hint: Start with a Central Root!)<br />
-					Only one central root is allowed <br/>
+					Select a parent node, type a name, and click + Node <br />
+					(Hint: Start with a Central Idea - Root!)<br />
+					Only one root is allowed <br/>
 					Click a node to select it<br/>
 					Branch or leaf nodes are added to the selected parent <br/>
 				
