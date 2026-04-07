@@ -1,0 +1,212 @@
+
+
+/* 1. Import Tailwind CSS v4 */
+@import "tailwindcss";
+
+/* 2. Brand Variables & Core Layout */
+:root {
+  --navy: #272b6a;
+  --pink: #ee4977;
+  --aqua: #4bc2c4;
+  --yellow: #fde32d;
+  --green: #2ecc71;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: var(--navy);
+  color: white;
+  text-align: center;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* 3. Header & Branding */
+header {
+  background: white;
+  color: var(--navy);
+  padding: 10px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 3px solid var(--pink);
+  z-index: 1001;
+}
+
+.logo-text {
+  font-weight: 900;
+  font-size: 1.5em;
+  letter-spacing: 1px;
+}
+
+.logo-text span {
+  color: var(--pink);
+}
+
+/* 4. Toolbar & Controls */
+#toolbar {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 12px;
+  border-bottom: 1px solid var(--aqua);
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  align-items: center;
+  z-index: 1000;
+}
+
+#toolbar input, 
+#toolbar select {
+  padding: 8px;
+  border-radius: 5px;
+  border: 1px solid var(--aqua);
+  outline: none;
+  color: black; /* Ensuring text visibility on white inputs */
+}
+
+/* 5. Canvas & SVG Connections */
+#canvas-wrapper {
+  flex-grow: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+#canvas {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+#svg-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+line {
+  stroke: rgba(255, 255, 255, 0.5);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+/* 6. Nodes & Interactive Elements */
+.node {
+  position: absolute;
+  padding: 12px 24px;
+  border-radius: 30px;
+  cursor: grab;
+  font-weight: bold;
+  border: 2px solid white;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  user-select: none;
+  white-space: nowrap;
+  background: var(--pink);
+  z-index: 10;
+  /* Force colors for high-quality printing */
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.node.selected {
+  border: 3px solid var(--yellow);
+  box-shadow: 0 0 20px var(--yellow);
+}
+
+.type-central {
+  background: var(--yellow) !important;
+  color: var(--navy) !important;
+  transform: scale(1.1);
+}
+
+.type-leaf {
+  background: var(--green) !important;
+  font-size: 0.9em;
+}
+
+/* 7. Footer & Framework Text */
+footer {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 15px;
+  font-size: 0.85em;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 1001;
+}
+
+footer a {
+  color: var(--aqua) !important;
+  text-decoration: none;
+  font-weight: bold;
+  transition: 0.3s;
+}
+
+footer a:hover {
+  color: var(--yellow) !important;
+  text-decoration: underline;
+}
+
+.framework-steps {
+  margin-bottom: 15px;
+  color: white;
+  font-weight: 900;
+  letter-spacing: 2px;
+  font-size: 0.85em;
+  opacity: 0.9;
+}
+
+/* 8. Print Header & PDF Logic */
+#printHeader {
+  display: none; /* Hidden on browser screen */
+  background: white;
+  padding: 20px;
+  border-bottom: 3px solid var(--navy);
+  text-align: left;
+}
+
+@media print {
+  @page {
+    size: landscape;
+    margin: 0;
+  }
+
+  #printHeader {
+    display: block !important;
+  }
+
+  header, #toolbar, footer, .delete-btn, #emptyMsg {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    height: auto !important;
+  }
+
+  #canvas-wrapper {
+    width: 100vw;
+    height: 100vh;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+
+  .node {
+    box-shadow: none !important;
+    border: 1px solid #333 !important;
+    color: white !important; /* Standard for pink/green nodes */
+  }
+
+  .type-central {
+    color: var(--navy) !important;
+  }
+
+  line {
+    stroke: #666 !important;
+    stroke-width: 2px;
+  }
+}
