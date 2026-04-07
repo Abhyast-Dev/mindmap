@@ -125,7 +125,7 @@
 				<div class="text-[0.75em] font-bold text-gray-500 uppercase">Autonomy Building Learning Environment</div>
 			</div>
 		</div>
-		<div class="text-[0.9em] font-bold">Cognitive Framework by Abhyast</div>
+		<div class="text-[0.9em] font-bold">Mind Mapping Made ABLE™</div>
 	</header>
 
 	<div class="z-[1000] flex flex-wrap items-center justify-center gap-2 border-b border-[#4bc2c4] bg-white/10 p-3 print:hidden">
