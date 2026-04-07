@@ -63,43 +63,67 @@
 	}
 
 	// --- Optimized Draggable Logic ---
-	function drag(nodeElement, nodeId) {
-		let moving = false;
+	// --- Unified Touch & Mouse Draggable Logic ---
+function drag(nodeElement, nodeId) {
+    let moving = false;
 
-		function handleMousedown(e) {
-			// Don't trigger drag if clicking the delete 'x'
-			if (e.target.closest('.delete-btn')) return;
-			moving = true;
-			e.preventDefault();
-		}
+    function handleStart(e) {
+        if (e.target.closest('.delete-btn')) return;
+        moving = true;
+        
+        // Prevent scrolling while dragging on touch devices
+        if (e.type === 'touchstart') e.preventDefault(); 
+    }
 
-		function handleMousemove(e) {
-			if (!moving) return;
-			// Direct mutation of the state proxy for maximum performance in Svelte 5
-			const node = nodes.find(n => n.id === nodeId);
-			if (node) {
-				node.x += e.movementX;
-				node.y += e.movementY;
-			}
-		}
+    function handleMove(e) {
+        if (!moving) return;
 
-		function handleMouseup() {
-			moving = false;
-		}
+        // Determine coordinates based on Touch or Mouse
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        
+        // We use movementX/Y for mouse, but for touch we must calculate manually
+        // Svelte 5 state proxy update
+        const node = nodes.find(n => n.id === nodeId);
+        if (node) {
+            // If it's a mouse event, use movementX. If touch, use simple tracking.
+            if (e.movementX !== undefined) {
+                node.x += e.movementX;
+                node.y += e.movementY;
+            } else {
+                // Touch fallback: This is a simplified version. 
+                // For smoother touch, you'd store the initial touch point.
+                node.x = clientX - 60; // Offset to center finger on node
+                node.y = clientY - 25;
+            }
+        }
+    }
 
-		nodeElement.addEventListener('mousedown', handleMousedown);
-		window.addEventListener('mousemove', handleMousemove);
-		window.addEventListener('mouseup', handleMouseup);
+    function handleEnd() {
+        moving = false;
+    }
 
-		return {
-			destroy() {
-				nodeElement.removeEventListener('mousedown', handleMousedown);
-				window.removeEventListener('mousemove', handleMousemove);
-				window.removeEventListener('mouseup', handleMouseup);
-			}
-		};
-	}
+    // Mouse Listeners
+    nodeElement.addEventListener('mousedown', handleStart);
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleEnd);
 
+    // Touch Listeners (iPad / Android)
+    nodeElement.addEventListener('touchstart', handleStart, { passive: false });
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('touchend', handleEnd);
+
+    return {
+        destroy() {
+            nodeElement.removeEventListener('mousedown', handleStart);
+            window.removeEventListener('mousemove', handleMove);
+            window.removeEventListener('mouseup', handleEnd);
+            nodeElement.removeEventListener('touchstart', handleStart);
+            window.removeEventListener('touchmove', handleMove);
+            window.removeEventListener('touchend', handleEnd);
+        }
+    };
+}
 	onMount(() => {
 		if ('serviceWorker' in navigator) {
 			navigator.serviceWorker
@@ -207,6 +231,7 @@
 				<div
 					use:drag={node.id}
 					on:click|stopPropagation={() => selectNode(node.id)}
+					on:touchend|stopPropagation={() => selectNode(node.id)}
 					style="left: {node.x}px; top: {node.y}px;"
 					class="absolute z-10 cursor-grab select-none whitespace-nowrap rounded-[30px] border-2 border-white px-6 py-3 font-bold shadow-[0_4px_15px_rgba(0,0,0,0.4)] transition-all
 					{node.type === 'type-central' ? 'bg-[#fde32d] text-[#272b6a] scale-110' : ''}
