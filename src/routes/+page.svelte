@@ -66,49 +66,46 @@
 	// --- Unified Touch & Mouse Draggable Logic ---
 function drag(nodeElement, nodeId) {
     let moving = false;
+    let startX, startY, initialNodeX, initialNodeY;
 
     function handleStart(e) {
         if (e.target.closest('.delete-btn')) return;
         moving = true;
+
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        const node = nodes.find(n => n.id === nodeId);
+        if (node) {
+            startX = clientX;
+            startY = clientY;
+            initialNodeX = node.x;
+            initialNodeY = node.y;
+        }
         
-        // Prevent scrolling while dragging on touch devices
         if (e.type === 'touchstart') e.preventDefault(); 
     }
 
     function handleMove(e) {
         if (!moving) return;
 
-        // Determine coordinates based on Touch or Mouse
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        
-        // We use movementX/Y for mouse, but for touch we must calculate manually
-        // Svelte 5 state proxy update
+
         const node = nodes.find(n => n.id === nodeId);
         if (node) {
-            // If it's a mouse event, use movementX. If touch, use simple tracking.
-            if (e.movementX !== undefined) {
-                node.x += e.movementX;
-                node.y += e.movementY;
-            } else {
-                // Touch fallback: This is a simplified version. 
-                // For smoother touch, you'd store the initial touch point.
-                node.x = clientX - 60; // Offset to center finger on node
-                node.y = clientY - 25;
-            }
+            const dx = clientX - startX;
+            const dy = clientY - startY;
+            node.x = initialNodeX + dx;
+            node.y = initialNodeY + dy;
         }
     }
 
-    function handleEnd() {
-        moving = false;
-    }
+    function handleEnd() { moving = false; }
 
-    // Mouse Listeners
     nodeElement.addEventListener('mousedown', handleStart);
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleEnd);
-
-    // Touch Listeners (iPad / Android)
     nodeElement.addEventListener('touchstart', handleStart, { passive: false });
     window.addEventListener('touchmove', handleMove, { passive: false });
     window.addEventListener('touchend', handleEnd);
@@ -124,7 +121,9 @@ function drag(nodeElement, nodeId) {
         }
     };
 }
-	onMount(() => {
+
+
+onMount(() => {
 		if ('serviceWorker' in navigator) {
 			navigator.serviceWorker
 				.register('/sw.js')
@@ -152,52 +151,23 @@ function drag(nodeElement, nodeId) {
 		<div class="text-[0.9em] font-bold">Mind Mapping Made ABLE™</div>
 	</header>
 
-	<div class="z-[1000] flex flex-wrap items-center justify-center gap-2 border-b border-[#4bc2c4] bg-white/10 p-3 print:hidden">
-		<input
-			type="text"
-			bind:value={nodeName}
-			placeholder="Concept Name..."
-			class="rounded border border-[#4bc2c4] bg-[#1a1d4a] p-2 text-white outline-none placeholder:text-white"
-		/>
-		<select 
-			bind:value={nodeType} 
-			class="rounded border border-[#4bc2c4] bg-[#1a1d4a] p-2 text-white outline-none cursor-pointer"
-		>
-			<option value="type-central" class="bg-[#272b6a]">Central Root</option>
-			<option value="type-branch" class="bg-[#272b6a]">Branch</option>
-			<option value="type-leaf" class="bg-[#272b6a]">Detail/Leaf</option>
-		</select>
-		
-		<button
-			on:click={addNewNode}
-			class="rounded bg-[#4bc2c4] px-4 py-2 font-bold text-[#272b6a] hover:brightness-110 transition active:scale-95"
-		>+ Add Node</button>
-		
-		<button
-			on:click={clearSelection}
-			class="rounded bg-white px-4 py-2 text-[#272b6a] hover:bg-gray-200 transition"
-		>Deselect</button>
-		
-		<input
-			type="text"
-			bind:value={mapTitle}
-			placeholder="Map Title..."
-			class="rounded border border-[#4bc2c4] bg-[#1a1d4a] p-2 text-white outline-none placeholder:text-white"
-		/>
-		
-		<input
-			type="text"
-			bind:value={studentName}
-			placeholder="Your Name..."
-			class="rounded border border-[#4bc2c4] bg-[#1a1d4a] p-2 text-white outline-none placeholder:text-white"
-		/>
-		
-		<button
-			on:click={preparePrint}
-			class="rounded bg-[#fde32d] px-4 py-2 font-bold text-[#272b6a] hover:brightness-110 transition"
-		>Print / 💾 Save PDF</button>
-	</div>
-
+	<div class="z-[1000] flex items-center gap-2 border-b border-[#4bc2c4] bg-white/10 p-2 overflow-x-auto no-scrollbar print:hidden">
+    <input type="text" bind:value={nodeName} placeholder="Concept..." class="w-32 shrink-0 rounded border border-[#4bc2c4] bg-[#1a1d4a] p-2 text-sm text-white outline-none" />
+    
+    <select bind:value={nodeType} class="w-24 shrink-0 rounded border border-[#4bc2c4] bg-[#1a1d4a] p-2 text-sm text-white outline-none">
+        <option value="type-central">Root</option>
+        <option value="type-branch">Branch</option>
+        <option value="type-leaf">Leaf</option>
+    </select>
+    
+    <button on:click={addNewNode} class="shrink-0 rounded bg-[#4bc2c4] px-3 py-2 text-sm font-bold text-[#272b6a]">+ Node</button>
+    
+    <button on:click={clearSelection} class="shrink-0 rounded bg-white/20 px-3 py-2 text-sm text-white">Deselect</button>
+    
+    <input type="text" bind:value={mapTitle} placeholder="Title..." class="w-28 shrink-0 rounded border border-[#4bc2c4] bg-[#1a1d4a] p-2 text-sm text-white outline-none" />
+    
+    <button on:click={preparePrint} class="shrink-0 rounded bg-[#fde32d] px-3 py-2 text-sm font-bold text-[#272b6a]">PDF</button>
+</div>
 	<div id="canvas-wrapper" class="relative flex-grow overflow-hidden">
 		<svg class="pointer-events-none absolute left-0 top-0 h-full w-full">
 			{#each connections as conn (conn.id)}
