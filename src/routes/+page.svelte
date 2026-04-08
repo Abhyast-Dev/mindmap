@@ -286,7 +286,7 @@ let mapQuality = $derived.by(() => {
 		<div class="flex items-center gap-4">
 			<img src="/Logo.png" alt="Abhyast" class="h-10 w-auto" />
 			<div class="hidden sm:block text-left">
-				<div class="text-xl font-black italic">ABLE™ <span class="text-xs font-bold text-white-400 not-italic">Mindmap Lab</span></div>
+				<div class="text-xl font-black italic">ABLE™ <span class="text-xs font-bold text-white-400 not-italic">Mind-map Lab</span></div>
 	
 			</div>
 		</div>
