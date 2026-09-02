@@ -16,6 +16,11 @@
 	let isPanning = false;
 	let startPanX, startPanY;
 
+	// Context menu & Modals
+	let contextMenu = $state({ visible: false, x: 0, y: 0, nodeId: null });
+	let connectModal = $state({ visible: false, sourceId: null, targetId: '' });
+	let manageModal = $state({ visible: false, nodeId: null });
+
 	let mapQuality = $derived.by(() => {
 		if (nodes.length === 0) return 0;
 		if (nodes.length === 1) return 1; 
@@ -66,7 +71,6 @@
 		nodes = next.nodes; connections = next.connections;
 	}
 
-	// 1. Improved Cursor-Centered Zooming
 	function handleWheel(e) {
 		e.preventDefault();
 		const zoomFactor = 0.001;
@@ -95,13 +99,6 @@
 			return alert('Select a parent node on the canvas first to attach this branch.');
 		}
 
-		if (selectedNodeId) {
-			const parent = nodes.find(n => n.id === selectedNodeId);
-			if (parent && parent.type === 'type-leaf') {
-				return alert('Leaf nodes are terminal details and cannot have sub-branches.');
-			}
-		}
-
 		saveHistory();
 		const id = Date.now();
 		let x, y;
@@ -114,8 +111,8 @@
 			const siblings = connections.filter(c => c.parentId === selectedNodeId).length;
 			const angle = (siblings * Math.PI) / 3; 
 			const radius = 180;
-			x = parent.x + Math.cos(angle) * radius;
-			y = parent.y + Math.sin(angle) * radius;
+			x = parent ? parent.x + Math.cos(angle) * radius : 2500;
+			y = parent ? parent.y + Math.sin(angle) * radius : 2500;
 		}
 
 		nodes = [...nodes, { id, name: nodeName.trim(), type: nodeType, x, y }];
@@ -123,6 +120,56 @@
 			connections = [...connections, { id: `c-${selectedNodeId}-${id}`, parentId: selectedNodeId, childId: id }];
 		}
 		nodeName = ''; 
+	}
+
+	function convertToLeaf(id) {
+		saveHistory();
+		nodes = nodes.map(n => n.id === id ? { ...n, type: 'type-leaf' } : n);
+		contextMenu.visible = false;
+	}
+
+	function openConnectModal(id) {
+		contextMenu.visible = false;
+		connectModal = { visible: true, sourceId: id, targetId: '' };
+	}
+
+	function openManageModal(id) {
+		contextMenu.visible = false;
+		manageModal = { visible: true, nodeId: id };
+	}
+
+	function executeConnection() {
+		if (!connectModal.targetId) return alert("Please select a target node to connect.");
+		if (connectModal.sourceId === Number(connectModal.targetId)) return alert("A node cannot connect to itself.");
+
+		const exists = connections.some(c => 
+			(c.parentId === connectModal.sourceId && c.childId === Number(connectModal.targetId)) ||
+			(c.parentId === Number(connectModal.targetId) && c.childId === connectModal.sourceId)
+		);
+
+		if (exists) {
+			alert("A connection between these nodes already exists.");
+			return;
+		}
+
+		saveHistory();
+		connections = [...connections, {
+			id: `c-${connectModal.sourceId}-${connectModal.targetId}`,
+			parentId: connectModal.sourceId,
+			childId: Number(connectModal.targetId)
+		}];
+		connectModal.visible = false;
+	}
+
+	function removeConnection(connId) {
+		saveHistory();
+		connections = connections.filter(c => c.id !== connId);
+	}
+
+	function removeAllConnectionsForNode(nodeId) {
+		saveHistory();
+		connections = connections.filter(c => c.parentId !== nodeId && c.childId !== nodeId);
+		manageModal.visible = false;
 	}
 
 	function cleanMap() {
@@ -170,7 +217,7 @@
 			const clientX = e.touches ? e.touches[0].clientX : e.clientX;
 			const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 			const node = nodes.find(n => n.id === nodeId);
-			sX = clientX; sY = clientY; iX = node.x; iY = node.y;
+			sX = clientX; sY = clientY; iX = node ? node.x : 0; iY = node ? node.y : 0;
 			window.addEventListener('mousemove', move);
 			window.addEventListener('mouseup', stop);
 			window.addEventListener('touchmove', move, { passive: false });
@@ -182,22 +229,43 @@
 		return { destroy() {} };
 	}
 
+	// Optimized Dynamic Bounding Box Export
 	async function exportPNG() {
 		const target = document.querySelector("#canvas-inner");
-		if (!target) return;
+		if (!target || nodes.length === 0) return alert("Add some nodes to export a mind map!");
 
 		await tick();
+
+		let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+		nodes.forEach(n => {
+			if (n.x < minX) minX = n.x;
+			if (n.y < minY) minY = n.y;
+			if (n.x + 180 > maxX) maxX = n.x + 180;
+			if (n.y + 60 > maxY) maxY = n.y + 60;
+		});
+
+		const padding = 150;
+		const boxX = Math.max(0, minX - padding);
+		const boxY = Math.max(0, minY - padding);
+		const boxWidth = (maxX - minX) + (padding * 2);
+		const boxHeight = (maxY - minY) + (padding * 2);
+
 		domtoimage.toPng(target, {
 			width: 5000,
 			height: 5000,
 			style: {
 				transform: 'scale(1)',
-				transformOrigin: 'top left'
+				transformOrigin: 'top left',
+				backgroundColor: '#fcfcfd',
+				left: `-${boxX}px`,
+				top: `-${boxY}px`,
+				width: `${boxWidth}px`,
+				height: `${boxHeight}px`
 			}
 		})
 		.then((dataUrl) => {
 			const link = document.createElement('a');
-			link.download = `ABLE_MindMap_${studentName || 'Student'}.png`;
+			link.download = `ABLE_${mapTitle || 'MindMap'}_${studentName || 'Student'}.png`;
 			link.href = dataUrl;
 			link.click();
 			alert("Well done! Your mindmap analysis has been exported successfully.");
@@ -208,12 +276,13 @@
 		});
 	}
 
-	// 2. Safe LocalStorage Handling with Try/Catch
 	function saveToLocal() {
+		if (!mapTitle.trim()) return alert("Please enter a Mind Map name before saving.");
 		if (!studentName.trim()) return alert("Please enter a student name before saving.");
-		const key = `ABLE_Map_${studentName.trim().toLowerCase()}`;
+		
+		const key = `ABLE_${mapTitle.trim().toLowerCase()}_${studentName.trim().toLowerCase()}`;
 		try {
-			localStorage.setItem(key, JSON.stringify({ nodes, connections, mapTitle }));
+			localStorage.setItem(key, JSON.stringify({ nodes, connections, mapTitle, studentName }));
 			alert("Map Secured Locally!");
 		} catch (e) {
 			alert("Storage failed. Your browser might be blocking local storage or running out of space.");
@@ -222,18 +291,17 @@
 	}
 
 	function loadFromLocal() {
-		if (!studentName.trim()) return alert("Enter student name to load map.");
-		const key = `ABLE_Map_${studentName.trim().toLowerCase()}`;
+		if (!mapTitle.trim() || !studentName.trim()) return alert("Enter both Mind Map name and Student Name to load.");
+		const key = `ABLE_${mapTitle.trim().toLowerCase()}_${studentName.trim().toLowerCase()}`;
 		const saved = localStorage.getItem(key);
 		if (saved) {
 			try {
 				const data = JSON.parse(saved);
 				nodes = data.nodes || [];
 				connections = data.connections || [];
-				mapTitle = data.mapTitle || '';
 				alert("Map loaded successfully!");
 			} catch { alert("Data Corrupted."); }
-		} else alert("No saved map found for this name.");
+		} else alert("No saved map found for this combination.");
 	}
 
 	function resetView() { 
@@ -253,34 +321,38 @@
 	});
 </script>
 
-<div class="flex h-screen flex-col overflow-hidden bg-[#272b6a] font-sans text-white select-none">
+<div class="flex h-screen flex-col overflow-hidden bg-[#f8fafc] font-sans text-[#272b6a] select-none" on:click={() => { contextMenu.visible = false; }}>
 
-	<!-- Top Warm Navbar -->
-	<header class="z-[1001] flex items-center justify-between border-b-4 border-[#ee4977] bg-white px-6 py-3 text-[#272b6a] shrink-0 shadow-xl">
+	<!-- Top Navbar -->
+	<header class="z-[1001] flex items-center justify-between border-b-4 border-[#ee4977] bg-[#272b6a] px-6 py-3 text-white shrink-0 shadow-xl">
 		<div class="flex items-center gap-3">
-			<div class="text-xl font-black italic tracking-wide text-[#272b6a]">ABLE™ <span class="text-xs font-bold text-[#4bc2c4] not-italic px-2 py-0.5 rounded-full bg-[#272b6a]/5">Mind-map Lab</span></div>
+			<img src="/Logo.png" alt="Abhyast Logo" class="h-9 w-auto object-contain bg-white p-1 rounded-lg shadow-sm" />
+			<div class="text-xl font-black tracking-wide text-white flex items-center gap-2">
+				<span>ABLE™</span> 
+				<span class="text-sm font-bold text-[#4bc2c4] px-2.5 py-1 rounded-lg bg-white/10 border border-white/10">Mind-map Lab</span>
+			</div>
 		</div>
 
-		<div class="hidden md:flex gap-2 text-base cursor-help items-center bg-slate-50 px-4 py-1.5 rounded-full border border-slate-200" title={thinkingMessage}>
+		<div class="hidden md:flex gap-2 text-base cursor-help items-center bg-[#161942] px-4 py-1.5 rounded-full border border-white/10 shadow-inner" title={thinkingMessage}>
 			{#each Array(3) as _, i}
 				<span>{i < mapQuality ? '⭐' : '🔘'}</span>
 			{/each}
-			<span class="text-[0.65em] uppercase font-black ml-2 text-[#272b6a]/60 tracking-wider">Thinking Level</span>
+			<span class="text-[0.65em] uppercase font-black ml-2 text-slate-300 tracking-wider">Thinking Level</span>
 		</div>
 
 		<div class="flex items-center gap-2">
-			<div class="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+			<div class="flex bg-[#161942] p-1 rounded-xl border border-white/10">
 				<button on:click={undo} class="px-3 py-1 bg-white text-[#272b6a] rounded-lg text-xs font-bold shadow-sm hover:bg-[#ee4977] hover:text-white transition-all">Undo</button>
 				<button on:click={redo} class="ml-1 px-3 py-1 bg-white text-[#272b6a] rounded-lg text-xs font-bold shadow-sm hover:bg-[#ee4977] hover:text-white transition-all">Redo</button>
 			</div>
-			<button on:click={resetView} class="px-3.5 py-1.5 bg-gradient-to-r from-[#272b6a] to-[#4bc2c4] text-white rounded-xl text-xs font-bold shadow-md hover:opacity-95 transition-all">🎯 Recenter</button>	
-			<button on:click={toggleInfo} class="w-7 h-7 flex items-center justify-center bg-slate-100 text-[#272b6a] rounded-full border border-slate-300 font-serif italic font-bold hover:bg-[#4bc2c4] hover:text-white">i</button>
+			<button on:click={resetView} class="px-3.5 py-1.5 bg-gradient-to-r from-[#272b6a] to-[#4bc2c4] text-white rounded-xl text-xs font-bold shadow-md hover:opacity-95 border border-white/20 transition-all">🎯 Recenter</button>	
+			<button on:click={toggleInfo} class="w-7 h-7 flex items-center justify-center bg-white/10 text-white rounded-full border border-white/20 font-serif italic font-bold hover:bg-[#4bc2c4] hover:text-[#272b6a]">i</button>
 		</div>
 	</header>
 
 	<!-- Action Toolbar -->
-	<div class="z-[1000] flex items-center gap-2.5 border-b border-[#4bc2c4]/30 bg-gradient-to-r from-[#272b6a] via-[#1a1d4a] to-[#272b6a] p-3 overflow-x-auto no-scrollbar shrink-0 text-sm shadow-inner">
-		<input type="text" bind:value={nodeName} placeholder="Concept name..." class="w-40 bg-[#272b6a]/80 border border-[#4bc2c4]/50 px-3.5 py-2 rounded-xl text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-[#4bc2c4]" />
+	<div class="z-[1000] flex items-center gap-2.5 border-b border-[#4bc2c4]/30 bg-gradient-to-r from-[#272b6a] via-[#1a1d4a] to-[#272b6a] p-3 overflow-x-auto no-scrollbar shrink-0 text-sm shadow-inner text-white">
+		<input type="text" bind:value={nodeName} placeholder="Concept name..." class="w-36 bg-[#272b6a]/80 border border-[#4bc2c4]/50 px-3.5 py-2 rounded-xl text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-[#4bc2c4]" />
 
 		<select bind:value={nodeType} class="bg-[#272b6a]/80 border border-[#4bc2c4]/50 px-3.5 py-2 rounded-xl text-white outline-none focus:ring-2 focus:ring-[#4bc2c4]">
 			<option value="type-central">🟡 Root Concept</option>
@@ -294,9 +366,10 @@
 
 		<div class="h-6 w-[1px] bg-white/20 mx-2"></div>
 
-		<input type="text" bind:value={studentName} placeholder="Student Name..." class="w-36 bg-[#272b6a]/80 border border-[#4bc2c4]/50 px-3.5 py-2 rounded-xl text-white placeholder-slate-400 outline-none" />
+		<input type="text" bind:value={mapTitle} placeholder="Mind Map Name..." class="w-32 bg-[#272b6a]/80 border border-[#4bc2c4]/50 px-3.5 py-2 rounded-xl text-white placeholder-slate-400 outline-none" />
+		<input type="text" bind:value={studentName} placeholder="Student Name..." class="w-32 bg-[#272b6a]/80 border border-[#4bc2c4]/50 px-3.5 py-2 rounded-xl text-white placeholder-slate-400 outline-none" />
 		<button on:click={saveToLocal} class="bg-gradient-to-r from-[#2ecc71] to-[#272b6a] text-white px-4 py-2 font-bold rounded-xl shadow hover:brightness-105 transition-all">Save</button>
-		<button on:click={loadFromLocal} class="bg-white/10 border border-white/20 px-4 py-2 font-bold rounded-xl hover:bg-white/20 transition-all">Load</button>
+		<button on:click={loadFromLocal} class="bg-white/10 border border-white/20 px-4 py-2 font-bold rounded-xl hover:bg-white/20 transition-all text-white">Load</button>
 
 		<div class="h-6 w-[1px] bg-white/20 mx-2"></div>
 
@@ -304,9 +377,9 @@
 		<button on:click={exportPNG} class="bg-gradient-to-r from-[#fde32d] to-amber-400 text-[#272b6a] px-4 py-2 font-black rounded-xl shadow-lg hover:brightness-105 transition-all">PNG Export</button>
 	</div>
 
-	<!-- Infinite Panning & Zooming Canvas Area -->
+	<!-- Canvas Area -->
 	<div id="canvas-container" 
-		class="relative flex-grow overflow-hidden bg-[radial-gradient(#4bc2c415_1px,transparent_1px)] [background-size:35px_35px] cursor-grab active:cursor-grabbing bg-[#1d2157]"
+		class="relative flex-grow overflow-hidden bg-[radial-gradient(#94a3b8_1.5px,transparent_1.5px)] [background-size:35px_35px] cursor-grab active:cursor-grabbing bg-[#fcfcfd]"
 		on:wheel={handleWheel}
 		on:mousedown={(e) => { 
 			if(e.target.closest('.node-base')) return; 
@@ -322,10 +395,9 @@
 		}}
 		on:click={() => selectedNodeId = null}
 	>
-		<!-- Large Virtual Bounding Space (5000x5000) for Massive Maps -->
 		<div id="canvas-inner" 
 			style="transform: translate({offsetX}px, {offsetY}px) scale({scale}); transform-origin: 0 0;" 
-			class="absolute w-[5000px] h-[5000px] pointer-events-auto"
+			class="absolute w-[5000px] h-[5000px] pointer-events-auto bg-[#fcfcfd]"
 		>
 			<svg id="svg-canvas" class="absolute inset-0 pointer-events-none w-full h-full">
 				{#each connections as conn (conn.id)}
@@ -334,11 +406,11 @@
 					{#if p && c}
 						{@const isConnectedToActive = (selectedNodeId && (p.id === selectedNodeId || c.id === selectedNodeId))}
 						<line 
-							x1={p.x + 70} 
+							x1={p.x + 80} 
 							y1={p.y + 25} 
-							x2={c.x + 70} 
+							x2={c.x + 80} 
 							y2={c.y + 25} 
-							class="stroke-[3] transition-all duration-300 {isConnectedToActive ? 'stroke-[#fde32d] opacity-100 stroke-[4]' : 'stroke-[#4bc2c4] opacity-70'}" 
+							class="stroke-[3.5] transition-all duration-300 {isConnectedToActive ? 'stroke-[#ee4977] opacity-100 stroke-[5]' : 'stroke-[#272b6a] opacity-60'}" 
 						/>
 					{/if}
 				{/each}
@@ -351,32 +423,96 @@
 					on:contextmenu|stopPropagation={(e) => {
 						e.preventDefault();
 						selectedNodeId = node.id;
+						contextMenu = { visible: true, x: e.clientX, y: e.clientY, nodeId: node.id };
 					}}
 					style="left: {node.x}px; top: {node.y}px;"
-					class="node-base absolute z-10 whitespace-nowrap rounded-[2rem] border-2 px-6 py-3 font-bold shadow-2xl transition-all duration-200 cursor-pointer flex items-center gap-3
-					{node.type === 'type-central' ? 'bg-gradient-to-r from-[#fde32d] to-amber-300 text-[#272b6a] border-white text-base shadow-[0_0_30px_rgba(253,227,45,0.4)]' : ''}
-					{node.type === 'type-branch' ? 'bg-gradient-to-r from-[#ee4977] to-pink-500 text-white border-white text-sm shadow-[0_0_25px_rgba(238,73,119,0.4)]' : ''}
-					{node.type === 'type-leaf' ? 'bg-gradient-to-r from-[#4bc2c4] to-emerald-400 text-[#272b6a] border-white text-xs shadow-[0_0_20px_rgba(75,194,196,0.4)]' : ''}
-					{selectedNodeId === node.id ? 'ring-4 ring-white ring-offset-2 ring-offset-[#272b6a] scale-105' : ''}"
+					class="node-base absolute z-10 whitespace-nowrap rounded-[2rem] border-2 px-6 py-3 font-extrabold shadow-xl transition-all duration-200 cursor-pointer flex items-center gap-3
+					{node.type === 'type-central' ? 'bg-gradient-to-r from-[#fde32d] to-amber-300 text-[#272b6a] border-[#272b6a] text-base shadow-[0_10px_25px_rgba(253,227,45,0.5)]' : ''}
+					{node.type === 'type-branch' ? 'bg-gradient-to-r from-[#ee4977] to-pink-500 text-white border-[#272b6a]/30 text-sm shadow-[0_10px_25px_rgba(238,73,119,0.4)]' : ''}
+					{node.type === 'type-leaf' ? 'bg-gradient-to-r from-[#4bc2c4] to-emerald-400 text-[#272b6a] border-[#272b6a]/30 text-xs shadow-[0_10px_25px_rgba(75,194,196,0.4)]' : ''}
+					{selectedNodeId === node.id ? 'ring-4 ring-[#272b6a] ring-offset-2 ring-offset-white scale-105' : ''}"
 				>
 					<span class="flex flex-col">
-						<span>{node.name}</span>
+						<span class="drop-shadow-sm">{node.name}</span>
 						{#if selectedNodeId === node.id}
-							<span class="text-[9px] text-[#272b6a]/80 font-black uppercase tracking-wider">Active Parent 🎯</span>
+							<span class="text-[9px] text-[#272b6a] font-black uppercase tracking-wider">Active Parent 🎯</span>
 						{/if}
 					</span>
 
-					{#if node.type === 'type-leaf'}
-						<span class="text-[10px] bg-black/20 px-2 py-0.5 rounded-full text-white uppercase tracking-wider font-extrabold">Leaf</span>
-					{/if}
-
-					<button on:click|stopPropagation={() => deleteNode(node.id)} class="opacity-60 hover:opacity-100 text-sm font-black px-1.5 py-0.5 rounded-full bg-black/10 hover:bg-black/20 transition-all">×</button>
+					<button on:click|stopPropagation={() => deleteNode(node.id)} class="opacity-70 hover:opacity-100 text-sm font-black px-1.5 py-0.5 rounded-full bg-black/10 hover:bg-black/20 transition-all text-[#272b6a]">×</button>
 				</div>
 			{/each}
 		</div>
 	</div>
 
-	<!-- Info Modal with Warm Polish -->
+	<!-- Custom Right-Click Context Menu -->
+	{#if contextMenu.visible}
+	<div style="top: {contextMenu.y}px; left: {contextMenu.x}px;" class="fixed z-[3000] bg-white border border-slate-200 rounded-2xl shadow-2xl p-2 min-w-[190px] text-[#272b6a]">
+		<button on:click={() => openConnectModal(contextMenu.nodeId)} class="w-full text-left px-3 py-2 text-xs font-bold rounded-xl hover:bg-slate-100 transition-all flex items-center gap-2">
+			🔗 Connect to...
+		</button>
+		<button on:click={() => openManageModal(contextMenu.nodeId)} class="w-full text-left px-3 py-2 text-xs font-bold rounded-xl hover:bg-slate-100 transition-all flex items-center gap-2 text-amber-600">
+			✂️ Manage / Remove Links
+		</button>
+		<button on:click={() => convertToLeaf(contextMenu.nodeId)} class="w-full text-left px-3 py-2 text-xs font-bold rounded-xl hover:bg-slate-100 transition-all flex items-center gap-2 text-[#ee4977]">
+			🟢 Convert to Leaf
+		</button>
+	</div>
+	{/if}
+
+	<!-- Connect Modal -->
+	{#if connectModal.visible}
+	<div class="fixed inset-0 z-[3000] flex items-center justify-center bg-black/70 backdrop-blur-sm" on:click={() => connectModal.visible = false}>
+		<div class="bg-white w-[90%] max-w-sm rounded-[2rem] p-6 text-[#272b6a] shadow-2xl" on:click|stopPropagation>
+			<h3 class="text-base font-black uppercase mb-4 text-[#272b6a]">Connect Node</h3>
+			<p class="text-xs text-slate-500 mb-3">Select another node to connect this concept to:</p>
+			
+			<select bind:value={connectModal.targetId} class="w-full bg-slate-100 border border-slate-300 p-2.5 text-xs rounded-xl outline-none mb-4 font-semibold">
+				<option value="" disabled>Choose target node...</option>
+				{#each nodes.filter(n => n.id !== connectModal.sourceId) as n}
+					<option value={n.id}>{n.name} ({n.type.replace('type-', '')})</option>
+				{/each}
+			</select>
+
+			<div class="flex gap-2">
+				<button on:click={executeConnection} class="flex-1 py-2.5 bg-[#272b6a] text-white font-black rounded-xl text-xs uppercase tracking-wider shadow-md hover:brightness-110">Link Nodes</button>
+				<button on:click={() => connectModal.visible = false} class="px-4 py-2.5 bg-slate-200 text-[#272b6a] font-bold rounded-xl text-xs">Cancel</button>
+			</div>
+		</div>
+	</div>
+	{/if}
+
+	<!-- Manage Links Modal -->
+	{#if manageModal.visible}
+	<div class="fixed inset-0 z-[3000] flex items-center justify-center bg-black/70 backdrop-blur-sm" on:click={() => manageModal.visible = false}>
+		<div class="bg-white w-[90%] max-w-md rounded-[2.5rem] p-6 text-[#272b6a] shadow-2xl" on:click|stopPropagation>
+			<h3 class="text-base font-black uppercase mb-2 text-[#272b6a]">Manage Connections</h3>
+			<p class="text-xs text-slate-500 mb-4">Remove individual links or clear all connections for this node:</p>
+			
+			<div class="max-h-48 overflow-y-auto space-y-2 mb-4">
+				{#each connections.filter(c => c.parentId === manageModal.nodeId || c.childId === manageModal.nodeId) as conn}
+					{@const otherId = conn.parentId === manageModal.nodeId ? conn.childId : conn.parentId}
+					{@const otherNode = nodes.find(n => n.id === otherId)}
+					<div class="flex items-center justify-between bg-slate-100 px-3 py-2 rounded-xl text-xs">
+						<span class="font-bold">{otherNode ? otherNode.name : 'Unknown Node'}</span>
+						<button on:click={() => removeConnection(conn.id)} class="text-red-500 font-bold px-2 py-1 bg-white rounded-lg shadow-sm hover:bg-red-500 hover:text-white transition-all">Remove</button>
+					</div>
+				{:else}
+					<p class="text-xs text-slate-400 italic text-center py-4">No active connections found for this node.</p>
+				{/each}
+			</div>
+
+			<div class="flex flex-col gap-2">
+				<button on:click={() => removeAllConnectionsForNode(manageModal.nodeId)} class="w-full py-2.5 bg-red-600 text-white font-black rounded-xl text-xs uppercase tracking-wider shadow-md hover:brightness-110">
+					Disconnect All Links
+				</button>
+				<button on:click={() => manageModal.visible = false} class="w-full py-2.5 bg-slate-200 text-[#272b6a] font-bold rounded-xl text-xs">Close</button>
+			</div>
+		</div>
+	</div>
+	{/if}
+
+	<!-- Info Modal -->
 	{#if showInfo}
 	<div class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/70 backdrop-blur-sm" on:click={toggleInfo}>
 		<div class="bg-white w-[90%] max-w-md rounded-[2.5rem] p-8 text-[#272b6a] shadow-2xl border-4 border-[#ee4977]/20" on:click|stopPropagation>
@@ -386,11 +522,9 @@
 			</div>
 
 			<div class="space-y-3 text-left text-xs leading-relaxed text-slate-600">
-				<p><strong>1. Flexible Branching:</strong> Click or right-click any node to designate it as the active parent, dynamically highlighting connected pathways.</p>
-				<p><strong>2. Cursor-Centered Zooming:</strong> Smoothly zoom in and out right where your mouse cursor is pointing.</p>
-				<p><strong>3. Brand Gradients & Safety:</strong> Warm color tiers with bulletproof local storage error handling for secure student sessions.</p>
-				<p><strong>4. Leaf Terminal Rule:</strong> Leaf nodes represent final granular details and cannot act as parents for sub-branches.</p>
-				<p><strong>5. Persistence:</strong> Enter a student name and click <strong>Save</strong> to store your work locally.</p>
+				<p><strong>1. Right-Click Context Menu:</strong> Right-click any node to open options for connecting, managing links, or converting it to a leaf.</p>
+				<p><strong>2. Manage/Remove Links:</strong> Select "Manage / Remove Links" to selectively delete individual connecting pathways or click "Disconnect All Links" to clear everything attached to that node.</p>
+				<p><strong>3. PWA Naming:</strong> Save and load your mind maps seamlessly using both the Map Name and Student Name combination.</p>
 			</div>
 
 			<button on:click={toggleInfo} class="mt-6 w-full py-3.5 bg-gradient-to-r from-[#272b6a] to-[#4bc2c4] text-white font-black rounded-2xl active:scale-95 transition-all text-xs uppercase tracking-wider shadow-lg">
@@ -400,20 +534,20 @@
 	</div>
 	{/if}
 
-	<!-- Warm Footer -->
-	<footer class="z-[1001] border-t border-white/10 bg-[#161942] p-3 text-[0.75em] print:hidden flex flex-col sm:flex-row justify-between items-center px-6 gap-2 text-slate-300">
-		<div class="flex gap-4">
-			<span>📧 <a href="mailto:contact@abhyast.in" class="font-bold text-[#4bc2c4] no-underline hover:underline">contact@abhyast.in</a></span>
-			<span>💬 <a href="https://wa.me/+919910686080" class="font-bold text-[#4bc2c4] no-underline hover:underline">WhatsApp Support</a></span>
+	<!-- Footer -->
+	<footer class="z-[1001] border-t-2 border-[#4bc2c4]/40 bg-[#1e2254] p-3.5 text-[0.8em] print:hidden flex flex-col sm:flex-row justify-between items-center px-6 gap-2 text-white font-semibold">
+		<div class="flex gap-6 items-center">
+			<span>📧 <a href="mailto:contact@abhyast.in" class="font-bold text-[#4bc2c4] hover:text-[#fde32d] no-underline hover:underline transition-colors">contact@abhyast.in</a></span>
+			<span>💬 <a href="https://wa.me/+919910686080" class="font-bold text-[#4bc2c4] hover:text-[#fde32d] no-underline hover:underline transition-colors">WhatsApp Support</a></span>
 		</div>
-		<div class="opacity-70 text-center">
+		<div class="text-white text-center tracking-wide font-bold">
 			© 2026 Abhyast Private Limited. ABLE™ Mind-map Lab.
 		</div>
 	</footer>
 </div>
 
 <style>
-	:global(body) { margin: 0; overflow: hidden; background: #272b6a; }
+	:global(body) { margin: 0; overflow: hidden; background: #fcfcfd; }
 	.no-scrollbar::-webkit-scrollbar { display: none; }
 	.node-base { cursor: grab; }
 	.node-base:active { cursor: grabbing; }
