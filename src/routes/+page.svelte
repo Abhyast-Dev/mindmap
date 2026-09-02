@@ -25,7 +25,7 @@
 	});
 
 	let thinkingMessage = $derived.by(() => {
-		if (nodes.length === 0) return "Ready to begin? Place your first Home Node to start mapping.";
+		if (nodes.length === 0) return "Ready to begin? Place your first Root Concept to start mapping.";
 		switch(mapQuality) {
 			case 0: return "Initial Inquiry: You've started capturing thoughts. Now, try to expand on them.";
 			case 1: return "Structuring Logic: You've identified key nodes. Can you connect them to show how they relate?";
@@ -80,7 +80,7 @@
 		}
 		
 		if (nodeType !== 'type-central' && !selectedNodeId) {
-			return alert('Select a parent node (Root Concept or Major Branch) first.');
+			return alert('Select a parent node on the canvas first to attach this branch.');
 		}
 
 		if (selectedNodeId) {
@@ -101,7 +101,7 @@
 			const parent = nodes.find(n => n.id === selectedNodeId);
 			const siblings = connections.filter(c => c.parentId === selectedNodeId).length;
 			const angle = (siblings * Math.PI) / 3; 
-			const radius = 160;
+			const radius = 180;
 			x = parent.x + Math.cos(angle) * radius;
 			y = parent.y + Math.sin(angle) * radius;
 		}
@@ -235,55 +235,60 @@
 	});
 </script>
 
-<div class="flex h-screen flex-col overflow-hidden bg-[#1e2254] font-sans text-white select-none">
+<div class="flex h-screen flex-col overflow-hidden bg-[#272b6a] font-sans text-white select-none">
 	
-	<header class="z-[1001] flex items-center justify-between border-b-4 border-[#ee4977] bg-white px-5 py-2 text-[#272b6a] shrink-0 shadow-2xl">
-		<div class="flex items-center gap-4">
-			<div class="text-xl font-black italic">ABLE™ <span class="text-xs font-bold text-slate-400 not-italic">Mind-map Lab</span></div>
+	<!-- Top Warm Navbar -->
+	<header class="z-[1001] flex items-center justify-between border-b-4 border-[#ee4977] bg-white px-6 py-3 text-[#272b6a] shrink-0 shadow-xl">
+		<div class="flex items-center gap-3">
+			<div class="text-xl font-black italic tracking-wide text-[#272b6a]">ABLE™ <span class="text-xs font-bold text-[#4bc2c4] not-italic px-2 py-0.5 rounded-full bg-[#272b6a]/5">Mind-map Lab</span></div>
 		</div>
 		
-		<div class="hidden md:flex gap-1 text-lg cursor-help items-center" title={thinkingMessage}>
+		<div class="hidden md:flex gap-2 text-base cursor-help items-center bg-slate-50 px-4 py-1.5 rounded-full border border-slate-200" title={thinkingMessage}>
 			{#each Array(3) as _, i}
 				<span>{i < mapQuality ? '⭐' : '🔘'}</span>
 			{/each}
-			<span class="text-[0.6em] uppercase font-black ml-2 text-slate-400">Thinking Level</span>
+			<span class="text-[0.65em] uppercase font-black ml-2 text-[#272b6a]/60 tracking-wider">Thinking Level</span>
 		</div>
 
 		<div class="flex items-center gap-2">
-			<div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
-				<button on:click={undo} class="px-3 py-1 bg-white text-[#272b6a] rounded-md text-xs font-bold shadow-sm hover:bg-[#ee4977] hover:text-white transition-all">Undo</button>
-				<button on:click={redo} class="ml-1 px-3 py-1 bg-white text-[#272b6a] rounded-md text-xs font-bold shadow-sm hover:bg-[#ee4977] hover:text-white transition-all">Redo</button>
+			<div class="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+				<button on:click={undo} class="px-3 py-1 bg-white text-[#272b6a] rounded-lg text-xs font-bold shadow-sm hover:bg-[#ee4977] hover:text-white transition-all">Undo</button>
+				<button on:click={redo} class="ml-1 px-3 py-1 bg-white text-[#272b6a] rounded-lg text-xs font-bold shadow-sm hover:bg-[#ee4977] hover:text-white transition-all">Redo</button>
 			</div>
-			<button on:click={resetView} class="px-3 py-1.5 bg-[#272b6a] text-white rounded-lg text-xs font-bold shadow-md hover:brightness-110">🎯 Recenter</button>	
+			<button on:click={resetView} class="px-3.5 py-1.5 bg-gradient-to-r from-[#272b6a] to-[#4bc2c4] text-white rounded-xl text-xs font-bold shadow-md hover:opacity-95 transition-all">🎯 Recenter</button>	
 			<button on:click={toggleInfo} class="w-7 h-7 flex items-center justify-center bg-slate-100 text-[#272b6a] rounded-full border border-slate-300 font-serif italic font-bold hover:bg-[#4bc2c4] hover:text-white">i</button>
 		</div>
 	</header>
 
-	<div class="z-[1000] flex items-center gap-2 border-b border-[#4bc2c4]/30 bg-[#161942] p-2.5 overflow-x-auto no-scrollbar shrink-0 text-sm">
-		<input type="text" bind:value={nodeName} placeholder="Concept name..." class="w-36 bg-[#272b6a] border border-[#4bc2c4] px-3 py-1.5 rounded text-white outline-none focus:ring-1 focus:ring-[#4bc2c4]" />
+	<!-- Action Toolbar with Warm Warm Gradients -->
+	<div class="z-[1000] flex items-center gap-2.5 border-b border-[#4bc2c4]/30 bg-gradient-to-r from-[#272b6a] via-[#1a1d4a] to-[#272b6a] p-3 overflow-x-auto no-scrollbar shrink-0 text-sm shadow-inner">
+		<input type="text" bind:value={nodeName} placeholder="Concept name..." class="w-40 bg-[#272b6a]/80 border border-[#4bc2c4]/50 px-3.5 py-2 rounded-xl text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-[#4bc2c4]" />
 		
-		<select bind:value={nodeType} class="bg-[#272b6a] border border-[#4bc2c4] px-3 py-1.5 rounded text-white outline-none">
+		<select bind:value={nodeType} class="bg-[#272b6a]/80 border border-[#4bc2c4]/50 px-3.5 py-2 rounded-xl text-white outline-none focus:ring-2 focus:ring-[#4bc2c4]">
 			<option value="type-central">🟡 Root Concept</option>
 			<option value="type-branch">🌸 Major Branch</option>
 			<option value="type-leaf">🟢 Leaf (Terminal)</option>
 		</select>
 
-		<button on:click={addNewNode} class="bg-[#4bc2c4] px-4 py-1.5 font-bold text-[#272b6a] rounded shadow hover:brightness-105 active:scale-95">+ Add Node</button>
+		<button on:click={addNewNode} class="bg-gradient-to-r from-[#4bc2c4] to-[#272b6a] text-white px-4 py-2 font-bold rounded-xl shadow-md hover:brightness-110 active:scale-95 transition-all">
+			+ Add to {selectedNodeId ? nodes.find(n => n.id === selectedNodeId)?.name || 'Parent' : 'Canvas'}
+		</button>
 		
 		<div class="h-6 w-[1px] bg-white/20 mx-2"></div>
 		
-		<input type="text" bind:value={studentName} placeholder="Student Name..." class="w-32 bg-[#272b6a] border border-[#4bc2c4] px-3 py-1.5 rounded text-white outline-none" />
-		<button on:click={saveToLocal} class="bg-[#2ecc71] text-[#1e2254] px-3 py-1.5 font-bold rounded shadow hover:brightness-105">Save</button>
-		<button on:click={loadFromLocal} class="bg-white/20 px-3 py-1.5 font-bold rounded hover:bg-white/30">Load</button>
+		<input type="text" bind:value={studentName} placeholder="Student Name..." class="w-36 bg-[#272b6a]/80 border border-[#4bc2c4]/50 px-3.5 py-2 rounded-xl text-white placeholder-slate-400 outline-none" />
+		<button on:click={saveToLocal} class="bg-gradient-to-r from-[#2ecc71] to-[#272b6a] text-white px-4 py-2 font-bold rounded-xl shadow hover:brightness-105 transition-all">Save</button>
+		<button on:click={loadFromLocal} class="bg-white/10 border border-white/20 px-4 py-2 font-bold rounded-xl hover:bg-white/20 transition-all">Load</button>
 		
 		<div class="h-6 w-[1px] bg-white/20 mx-2"></div>
 		
-		<button on:click={cleanMap} class="bg-red-500/20 text-red-300 border border-red-500/40 px-3 py-1.5 text-xs font-bold rounded hover:bg-red-500 hover:text-white">Clean Map</button>
-		<button on:click={exportPNG} class="bg-[#fde32d] text-[#272b6a] px-3 py-1.5 font-bold rounded shadow hover:brightness-105">PNG Export</button>
+		<button on:click={cleanMap} class="bg-gradient-to-r from-[#ee4977]/80 to-red-600 text-white px-3.5 py-2 text-xs font-bold rounded-xl shadow hover:brightness-110 transition-all">Clean Map</button>
+		<button on:click={exportPNG} class="bg-gradient-to-r from-[#fde32d] to-amber-400 text-[#272b6a] px-4 py-2 font-black rounded-xl shadow-lg hover:brightness-105 transition-all">PNG Export</button>
 	</div>
 
+	<!-- Infinite Panning & Zooming Canvas Area -->
 	<div id="canvas-container" 
-		class="relative flex-grow overflow-hidden bg-[radial-gradient(#ffffff10_1px,transparent_1px)] [background-size:30px_30px] cursor-grab active:cursor-grabbing"
+		class="relative flex-grow overflow-hidden bg-[radial-gradient(#4bc2c415_1px,transparent_1px)] [background-size:35px_35px] cursor-grab active:cursor-grabbing bg-[#1d2157]"
 		on:wheel={handleWheel}
 		on:mousedown={(e) => { 
 			if(e.target.closest('.node-base')) return; 
@@ -299,6 +304,7 @@
 		}}
 		on:click={() => selectedNodeId = null}
 	>
+		<!-- Large Virtual Bounding Space (5000x5000) for Massive Maps -->
 		<div id="canvas-inner" 
 			style="transform: translate({offsetX}px, {offsetY}px) scale({scale}); transform-origin: 0 0;" 
 			class="absolute w-[5000px] h-[5000px] pointer-events-auto"
@@ -308,7 +314,7 @@
 					{@const p = nodes.find(n => n.id === conn.parentId)}
 					{@const c = nodes.find(n => n.id === conn.childId)}
 					{#if p && c}
-						<line x1={p.x + 70} y1={p.y + 25} x2={c.x + 70} y2={c.y + 25} class="stroke-[#4bc2c4] stroke-[3] opacity-60" />
+						<line x1={p.x + 70} y1={p.y + 25} x2={c.x + 70} y2={c.y + 25} class="stroke-[#4bc2c4] stroke-[3] opacity-70 drop-shadow-sm" />
 					{/if}
 				{/each}
 			</svg>
@@ -318,46 +324,55 @@
 					use:drag={node.id}
 					on:click|stopPropagation={() => selectedNodeId = node.id}
 					style="left: {node.x}px; top: {node.y}px;"
-					class="node-base absolute z-10 whitespace-nowrap rounded-[2rem] border-2 px-6 py-3 font-bold shadow-2xl transition-shadow duration-200 cursor-pointer flex items-center gap-3
-					{node.type === 'type-central' ? 'bg-[#fde32d] text-[#272b6a] border-white text-base shadow-[0_0_25px_rgba(253,227,45,0.4)]' : ''}
-					{node.type === 'type-branch' ? 'bg-[#ee4977] text-white border-white text-sm shadow-[0_0_20px_rgba(238,73,119,0.3)]' : ''}
-					{node.type === 'type-leaf' ? 'bg-[#2ecc71] text-[#1e2254] border-white text-xs shadow-[0_0_15px_rgba(46,204,113,0.3)]' : ''}
-					{selectedNodeId === node.id ? 'ring-4 ring-white ring-offset-2 ring-offset-[#1e2254]' : ''}"
+					class="node-base absolute z-10 whitespace-nowrap rounded-[2rem] border-2 px-6 py-3 font-bold shadow-2xl transition-all duration-200 cursor-pointer flex items-center gap-3
+					{node.type === 'type-central' ? 'bg-gradient-to-r from-[#fde32d] to-amber-300 text-[#272b6a] border-white text-base shadow-[0_0_30px_rgba(253,227,45,0.4)]' : ''}
+					{node.type === 'type-branch' ? 'bg-gradient-to-r from-[#ee4977] to-pink-500 text-white border-white text-sm shadow-[0_0_25px_rgba(238,73,119,0.4)]' : ''}
+					{node.type === 'type-leaf' ? 'bg-gradient-to-r from-[#4bc2c4] to-emerald-400 text-[#272b6a] border-white text-xs shadow-[0_0_20px_rgba(75,194,196,0.4)]' : ''}
+					{selectedNodeId === node.id ? 'ring-4 ring-white ring-offset-2 ring-offset-[#272b6a] scale-105' : ''}"
 				>
-					<span>{node.name}</span>
+					<span class="flex flex-col">
+						<span>{node.name}</span>
+						{#if selectedNodeId === node.id}
+							<span class="text-[9px] text-[#272b6a]/80 font-black uppercase tracking-wider">Active Parent 🎯</span>
+						{/if}
+					</span>
+
 					{#if node.type === 'type-leaf'}
-						<span class="text-[10px] bg-black/20 px-1.5 py-0.5 rounded text-white uppercase tracking-wider">Leaf</span>
+						<span class="text-[10px] bg-black/20 px-2 py-0.5 rounded-full text-white uppercase tracking-wider font-extrabold">Leaf</span>
 					{/if}
-					<button on:click|stopPropagation={() => deleteNode(node.id)} class="opacity-40 hover:opacity-100 text-sm font-black px-1">×</button>
+					
+					<button on:click|stopPropagation={() => deleteNode(node.id)} class="opacity-60 hover:opacity-100 text-sm font-black px-1.5 py-0.5 rounded-full bg-black/10 hover:bg-black/20 transition-all">×</button>
 				</div>
 			{/each}
 		</div>
 	</div>
 
+	<!-- Info Modal with Warm Polish -->
 	{#if showInfo}
 	<div class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/70 backdrop-blur-sm" on:click={toggleInfo}>
-		<div class="bg-white w-[90%] max-w-md rounded-3xl p-6 text-[#272b6a] shadow-2xl" on:click|stopPropagation>
+		<div class="bg-white w-[90%] max-w-md rounded-[2.5rem] p-8 text-[#272b6a] shadow-2xl border-4 border-[#ee4977]/20" on:click|stopPropagation>
 			<div class="flex justify-between items-center mb-4">
-				<h2 class="text-xl font-black uppercase tracking-tight">ABLE™ Mind-map Guide</h2>
-				<button on:click={toggleInfo} class="text-2xl opacity-50 hover:opacity-100">×</button>
+				<h2 class="text-xl font-black uppercase tracking-tight text-[#272b6a]">ABLE™ Mind-map Guide</h2>
+				<button on:click={toggleInfo} class="text-2xl opacity-50 hover:opacity-100 text-[#ee4977]">×</button>
 			</div>
 			
 			<div class="space-y-3 text-left text-xs leading-relaxed text-slate-600">
-				<p><strong>1. Infinite Workspace:</strong> Drag anywhere on the background canvas to pan, and use your mouse wheel to zoom in and out smoothly.</p>
-				<p><strong>2. Distinct Tiers:</strong> Root Concepts (Yellow), Major Branches (Pink), and Leaf Details (Green) are visually distinct.</p>
-				<p><strong>3. Leaf Terminal Rule:</strong> Leaf nodes are final details and cannot act as parents for sub-branches.</p>
-				<p><strong>4. Building:</strong> Select a parent node, choose your node type, type a concept name, and click <strong>+ Add Node</strong>.</p>
-				<p><strong>5. Persistence:</strong> Enter a student name and click <strong>Save</strong> to store your map locally on this device.</p>
+				<p><strong>1. Flexible Branching:</strong> Click any node on your canvas to designate it as the active parent, allowing you to branch out anywhere effortlessly.</p>
+				<p><strong>2. Brand Gradients:</strong> Experience distinct, warm color tiers: Root (Yellow Gradient), Major Branches (Pink Gradient), and Terminal Leaves (Aqua Gradient).</p>
+				<p><strong>3. Leaf Terminal Rule:</strong> Leaf nodes represent final granular details and cannot act as parents for sub-branches.</p>
+				<p><strong>4. Infinite Workspace:</strong> Pan smoothly across the canvas and use your mouse wheel to zoom in/out.</p>
+				<p><strong>5. Persistence:</strong> Enter a student name and click <strong>Save</strong> to store your work locally.</p>
 			</div>
 			
-			<button on:click={toggleInfo} class="mt-6 w-full py-3 bg-[#272b6a] text-white font-bold rounded-2xl active:scale-95 transition-all text-xs uppercase tracking-wider">
-				Got it, let's map!
+			<button on:click={toggleInfo} class="mt-6 w-full py-3.5 bg-gradient-to-r from-[#272b6a] to-[#4bc2c4] text-white font-black rounded-2xl active:scale-95 transition-all text-xs uppercase tracking-wider shadow-lg">
+				Got it, let's map! ✨
 			</button>
 		</div>
 	</div>
 	{/if}
 
-	<footer class="z-[1001] border-t border-white/10 bg-black/40 p-3 text-[0.75em] print:hidden flex flex-col sm:flex-row justify-between items-center px-6 gap-2">
+	<!-- Warm Footer -->
+	<footer class="z-[1001] border-t border-white/10 bg-[#161942] p-3 text-[0.75em] print:hidden flex flex-col sm:flex-row justify-between items-center px-6 gap-2 text-slate-300">
 		<div class="flex gap-4">
 			<span>📧 <a href="mailto:contact@abhyast.in" class="font-bold text-[#4bc2c4] no-underline hover:underline">contact@abhyast.in</a></span>
 			<span>💬 <a href="https://wa.me/+919910686080" class="font-bold text-[#4bc2c4] no-underline hover:underline">WhatsApp Support</a></span>
@@ -369,7 +384,7 @@
 </div>
 
 <style>
-	:global(body) { margin: 0; overflow: hidden; background: #1e2254; }
+	:global(body) { margin: 0; overflow: hidden; background: #272b6a; }
 	.no-scrollbar::-webkit-scrollbar { display: none; }
 	.node-base { cursor: grab; }
 	.node-base:active { cursor: grabbing; }
