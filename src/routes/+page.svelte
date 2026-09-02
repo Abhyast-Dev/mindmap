@@ -9,7 +9,7 @@
 	let nodeType = $state('type-central');
 	let mapTitle = $state('');
 	let studentName = $state('');
-	
+
 	let scale = $state(1);
 	let offsetX = $state(2500);
 	let offsetY = $state(2500);
@@ -66,19 +66,31 @@
 		nodes = next.nodes; connections = next.connections;
 	}
 
+	// 1. Improved Cursor-Centered Zooming
 	function handleWheel(e) {
 		e.preventDefault();
 		const zoomFactor = 0.001;
-		scale = Math.min(Math.max(0.2, scale - e.deltaY * zoomFactor), 3);
+		const oldScale = scale;
+		const newScale = Math.min(Math.max(0.2, scale - e.deltaY * zoomFactor), 3);
+		
+		const container = document.querySelector("#canvas-container");
+		if (!container) return;
+		const rect = container.getBoundingClientRect();
+		const mouseX = e.clientX - rect.left;
+		const mouseY = e.clientY - rect.top;
+
+		offsetX = mouseX - (mouseX - offsetX) * (newScale / oldScale);
+		offsetY = mouseY - (mouseY - offsetY) * (newScale / oldScale);
+		scale = newScale;
 	}
 
 	function addNewNode() {
 		if (!nodeName.trim()) return alert('Enter concept name');
-		
+
 		if (nodeType === 'type-central' && nodes.some(n => n.type === 'type-central')) {
 			return alert('Only one central root allowed.');
 		}
-		
+
 		if (nodeType !== 'type-central' && !selectedNodeId) {
 			return alert('Select a parent node on the canvas first to attach this branch.');
 		}
@@ -196,11 +208,17 @@
 		});
 	}
 
+	// 2. Safe LocalStorage Handling with Try/Catch
 	function saveToLocal() {
 		if (!studentName.trim()) return alert("Please enter a student name before saving.");
 		const key = `ABLE_Map_${studentName.trim().toLowerCase()}`;
-		localStorage.setItem(key, JSON.stringify({ nodes, connections, mapTitle }));
-		alert("Map Secured Locally!");
+		try {
+			localStorage.setItem(key, JSON.stringify({ nodes, connections, mapTitle }));
+			alert("Map Secured Locally!");
+		} catch (e) {
+			alert("Storage failed. Your browser might be blocking local storage or running out of space.");
+			console.error(e);
+		}
 	}
 
 	function loadFromLocal() {
@@ -236,13 +254,13 @@
 </script>
 
 <div class="flex h-screen flex-col overflow-hidden bg-[#272b6a] font-sans text-white select-none">
-	
+
 	<!-- Top Warm Navbar -->
 	<header class="z-[1001] flex items-center justify-between border-b-4 border-[#ee4977] bg-white px-6 py-3 text-[#272b6a] shrink-0 shadow-xl">
 		<div class="flex items-center gap-3">
 			<div class="text-xl font-black italic tracking-wide text-[#272b6a]">ABLE™ <span class="text-xs font-bold text-[#4bc2c4] not-italic px-2 py-0.5 rounded-full bg-[#272b6a]/5">Mind-map Lab</span></div>
 		</div>
-		
+
 		<div class="hidden md:flex gap-2 text-base cursor-help items-center bg-slate-50 px-4 py-1.5 rounded-full border border-slate-200" title={thinkingMessage}>
 			{#each Array(3) as _, i}
 				<span>{i < mapQuality ? '⭐' : '🔘'}</span>
@@ -260,10 +278,10 @@
 		</div>
 	</header>
 
-	<!-- Action Toolbar with Warm Warm Gradients -->
+	<!-- Action Toolbar -->
 	<div class="z-[1000] flex items-center gap-2.5 border-b border-[#4bc2c4]/30 bg-gradient-to-r from-[#272b6a] via-[#1a1d4a] to-[#272b6a] p-3 overflow-x-auto no-scrollbar shrink-0 text-sm shadow-inner">
 		<input type="text" bind:value={nodeName} placeholder="Concept name..." class="w-40 bg-[#272b6a]/80 border border-[#4bc2c4]/50 px-3.5 py-2 rounded-xl text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-[#4bc2c4]" />
-		
+
 		<select bind:value={nodeType} class="bg-[#272b6a]/80 border border-[#4bc2c4]/50 px-3.5 py-2 rounded-xl text-white outline-none focus:ring-2 focus:ring-[#4bc2c4]">
 			<option value="type-central">🟡 Root Concept</option>
 			<option value="type-branch">🌸 Major Branch</option>
@@ -273,15 +291,15 @@
 		<button on:click={addNewNode} class="bg-gradient-to-r from-[#4bc2c4] to-[#272b6a] text-white px-4 py-2 font-bold rounded-xl shadow-md hover:brightness-110 active:scale-95 transition-all">
 			+ Add to {selectedNodeId ? nodes.find(n => n.id === selectedNodeId)?.name || 'Parent' : 'Canvas'}
 		</button>
-		
+
 		<div class="h-6 w-[1px] bg-white/20 mx-2"></div>
-		
+
 		<input type="text" bind:value={studentName} placeholder="Student Name..." class="w-36 bg-[#272b6a]/80 border border-[#4bc2c4]/50 px-3.5 py-2 rounded-xl text-white placeholder-slate-400 outline-none" />
 		<button on:click={saveToLocal} class="bg-gradient-to-r from-[#2ecc71] to-[#272b6a] text-white px-4 py-2 font-bold rounded-xl shadow hover:brightness-105 transition-all">Save</button>
 		<button on:click={loadFromLocal} class="bg-white/10 border border-white/20 px-4 py-2 font-bold rounded-xl hover:bg-white/20 transition-all">Load</button>
-		
+
 		<div class="h-6 w-[1px] bg-white/20 mx-2"></div>
-		
+
 		<button on:click={cleanMap} class="bg-gradient-to-r from-[#ee4977]/80 to-red-600 text-white px-3.5 py-2 text-xs font-bold rounded-xl shadow hover:brightness-110 transition-all">Clean Map</button>
 		<button on:click={exportPNG} class="bg-gradient-to-r from-[#fde32d] to-amber-400 text-[#272b6a] px-4 py-2 font-black rounded-xl shadow-lg hover:brightness-105 transition-all">PNG Export</button>
 	</div>
@@ -314,7 +332,14 @@
 					{@const p = nodes.find(n => n.id === conn.parentId)}
 					{@const c = nodes.find(n => n.id === conn.childId)}
 					{#if p && c}
-						<line x1={p.x + 70} y1={p.y + 25} x2={c.x + 70} y2={c.y + 25} class="stroke-[#4bc2c4] stroke-[3] opacity-70 drop-shadow-sm" />
+						{@const isConnectedToActive = (selectedNodeId && (p.id === selectedNodeId || c.id === selectedNodeId))}
+						<line 
+							x1={p.x + 70} 
+							y1={p.y + 25} 
+							x2={c.x + 70} 
+							y2={c.y + 25} 
+							class="stroke-[3] transition-all duration-300 {isConnectedToActive ? 'stroke-[#fde32d] opacity-100 stroke-[4]' : 'stroke-[#4bc2c4] opacity-70'}" 
+						/>
 					{/if}
 				{/each}
 			</svg>
@@ -323,6 +348,10 @@
 				<div
 					use:drag={node.id}
 					on:click|stopPropagation={() => selectedNodeId = node.id}
+					on:contextmenu|stopPropagation={(e) => {
+						e.preventDefault();
+						selectedNodeId = node.id;
+					}}
 					style="left: {node.x}px; top: {node.y}px;"
 					class="node-base absolute z-10 whitespace-nowrap rounded-[2rem] border-2 px-6 py-3 font-bold shadow-2xl transition-all duration-200 cursor-pointer flex items-center gap-3
 					{node.type === 'type-central' ? 'bg-gradient-to-r from-[#fde32d] to-amber-300 text-[#272b6a] border-white text-base shadow-[0_0_30px_rgba(253,227,45,0.4)]' : ''}
@@ -340,7 +369,7 @@
 					{#if node.type === 'type-leaf'}
 						<span class="text-[10px] bg-black/20 px-2 py-0.5 rounded-full text-white uppercase tracking-wider font-extrabold">Leaf</span>
 					{/if}
-					
+
 					<button on:click|stopPropagation={() => deleteNode(node.id)} class="opacity-60 hover:opacity-100 text-sm font-black px-1.5 py-0.5 rounded-full bg-black/10 hover:bg-black/20 transition-all">×</button>
 				</div>
 			{/each}
@@ -355,15 +384,15 @@
 				<h2 class="text-xl font-black uppercase tracking-tight text-[#272b6a]">ABLE™ Mind-map Guide</h2>
 				<button on:click={toggleInfo} class="text-2xl opacity-50 hover:opacity-100 text-[#ee4977]">×</button>
 			</div>
-			
+
 			<div class="space-y-3 text-left text-xs leading-relaxed text-slate-600">
-				<p><strong>1. Flexible Branching:</strong> Click any node on your canvas to designate it as the active parent, allowing you to branch out anywhere effortlessly.</p>
-				<p><strong>2. Brand Gradients:</strong> Experience distinct, warm color tiers: Root (Yellow Gradient), Major Branches (Pink Gradient), and Terminal Leaves (Aqua Gradient).</p>
-				<p><strong>3. Leaf Terminal Rule:</strong> Leaf nodes represent final granular details and cannot act as parents for sub-branches.</p>
-				<p><strong>4. Infinite Workspace:</strong> Pan smoothly across the canvas and use your mouse wheel to zoom in/out.</p>
+				<p><strong>1. Flexible Branching:</strong> Click or right-click any node to designate it as the active parent, dynamically highlighting connected pathways.</p>
+				<p><strong>2. Cursor-Centered Zooming:</strong> Smoothly zoom in and out right where your mouse cursor is pointing.</p>
+				<p><strong>3. Brand Gradients & Safety:</strong> Warm color tiers with bulletproof local storage error handling for secure student sessions.</p>
+				<p><strong>4. Leaf Terminal Rule:</strong> Leaf nodes represent final granular details and cannot act as parents for sub-branches.</p>
 				<p><strong>5. Persistence:</strong> Enter a student name and click <strong>Save</strong> to store your work locally.</p>
 			</div>
-			
+
 			<button on:click={toggleInfo} class="mt-6 w-full py-3.5 bg-gradient-to-r from-[#272b6a] to-[#4bc2c4] text-white font-black rounded-2xl active:scale-95 transition-all text-xs uppercase tracking-wider shadow-lg">
 				Got it, let's map! ✨
 			</button>
