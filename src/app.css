@@ -1,6 +1,5 @@
 /* 1. Import Tailwind CSS v4 */
 @import "tailwindcss";
-
 @theme {
   /* Explicitly defining brand colors for Tailwind v4 */
   --color-pink: #ee4977;
