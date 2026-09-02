@@ -373,5 +373,4 @@
 	.no-scrollbar::-webkit-scrollbar { display: none; }
 	.node-base { cursor: grab; }
 	.node-base:active { cursor: grabbing; }
-</style> 
-
+</style>
