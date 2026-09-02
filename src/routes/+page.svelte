@@ -75,7 +75,6 @@
 	function handleWheel(e) {
 		e.preventDefault();
 		const zoomFactor = 0.001;
-		const oldScale = scale;
 		scale = Math.min(Math.max(0.2, scale - e.deltaY * zoomFactor), 3);
 	}
 
@@ -103,7 +102,6 @@
 		let x, y;
 
 		if (nodeType === 'type-central') {
-			// Place at current viewport center offset
 			x = 2500;
 			y = 2500;
 		} else {
