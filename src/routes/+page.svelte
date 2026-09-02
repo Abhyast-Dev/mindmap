@@ -2,7 +2,6 @@
 	import { onMount, tick } from 'svelte';
 	import domtoimage from 'dom-to-image';
 
-	/** --- 1. STATE & CORE RUNES --- */
 	let nodes = $state([]);
 	let connections = $state([]);
 	let selectedNodeId = $state(null);
@@ -11,14 +10,12 @@
 	let mapTitle = $state('');
 	let studentName = $state('');
 	
-	// Navigation (Zoom/Pan) & Infinite Canvas tracking
 	let scale = $state(1);
-	let offsetX = $state(2500); // Start centered in a 5000x5000 virtual space
+	let offsetX = $state(2500);
 	let offsetY = $state(2500);
 	let isPanning = false;
 	let startPanX, startPanY;
 
-	/** --- 2. THE COGNITIVE ENGINE (The ABLE™ Moat) --- */
 	let mapQuality = $derived.by(() => {
 		if (nodes.length === 0) return 0;
 		if (nodes.length === 1) return 1; 
@@ -38,7 +35,6 @@
 		}
 	});
 
-	/** --- 3. HISTORY ENGINE (Undo/Redo) --- */
 	let history = [];
 	let future = [];
 	let showInfo = $state(false);
@@ -70,8 +66,6 @@
 		nodes = next.nodes; connections = next.connections;
 	}
 
-	/** --- 4. CORE MAPPING & NAVIGATION LOGIC --- */
-
 	function handleWheel(e) {
 		e.preventDefault();
 		const zoomFactor = 0.001;
@@ -89,7 +83,6 @@
 			return alert('Select a parent node (Root Concept or Major Branch) first.');
 		}
 
-		// CONSTRAINT CHECK: Leaf nodes cannot have child connections
 		if (selectedNodeId) {
 			const parent = nodes.find(n => n.id === selectedNodeId);
 			if (parent && parent.type === 'type-leaf') {
@@ -139,7 +132,6 @@
 		if (selectedNodeId === id) selectedNodeId = null;
 	}
 
-	/** --- 6. DRAG & TOUCH PANNING --- */
 	function drag(nodeElement, nodeId) {
 		let moving = false, moved = false, sX, sY, iX, iY;
 
@@ -178,7 +170,6 @@
 		return { destroy() {} };
 	}
 
-	/** --- 7. PERSISTENCE & EXPORT --- */
 	async function exportPNG() {
 		const target = document.querySelector("#canvas-inner");
 		if (!target) return;
@@ -246,7 +237,6 @@
 
 <div class="flex h-screen flex-col overflow-hidden bg-[#1e2254] font-sans text-white select-none">
 	
-	<!-- Top Bar -->
 	<header class="z-[1001] flex items-center justify-between border-b-4 border-[#ee4977] bg-white px-5 py-2 text-[#272b6a] shrink-0 shadow-2xl">
 		<div class="flex items-center gap-4">
 			<div class="text-xl font-black italic">ABLE™ <span class="text-xs font-bold text-slate-400 not-italic">Mind-map Lab</span></div>
@@ -269,7 +259,6 @@
 		</div>
 	</header>
 
-	<!-- Action Toolbar -->
 	<div class="z-[1000] flex items-center gap-2 border-b border-[#4bc2c4]/30 bg-[#161942] p-2.5 overflow-x-auto no-scrollbar shrink-0 text-sm">
 		<input type="text" bind:value={nodeName} placeholder="Concept name..." class="w-36 bg-[#272b6a] border border-[#4bc2c4] px-3 py-1.5 rounded text-white outline-none focus:ring-1 focus:ring-[#4bc2c4]" />
 		
@@ -293,7 +282,6 @@
 		<button on:click={exportPNG} class="bg-[#fde32d] text-[#272b6a] px-3 py-1.5 font-bold rounded shadow hover:brightness-105">PNG Export</button>
 	</div>
 
-	<!-- Infinite Panning & Zooming Canvas Area -->
 	<div id="canvas-container" 
 		class="relative flex-grow overflow-hidden bg-[radial-gradient(#ffffff10_1px,transparent_1px)] [background-size:30px_30px] cursor-grab active:cursor-grabbing"
 		on:wheel={handleWheel}
@@ -311,7 +299,6 @@
 		}}
 		on:click={() => selectedNodeId = null}
 	>
-		<!-- Large Virtual Bounding Space (5000x5000) for Massive Maps -->
 		<div id="canvas-inner" 
 			style="transform: translate({offsetX}px, {offsetY}px) scale({scale}); transform-origin: 0 0;" 
 			class="absolute w-[5000px] h-[5000px] pointer-events-auto"
@@ -347,7 +334,6 @@
 		</div>
 	</div>
 
-	<!-- Info Modal -->
 	{#if showInfo}
 	<div class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/70 backdrop-blur-sm" on:click={toggleInfo}>
 		<div class="bg-white w-[90%] max-w-md rounded-3xl p-6 text-[#272b6a] shadow-2xl" on:click|stopPropagation>
@@ -371,7 +357,6 @@
 	</div>
 	{/if}
 
-	<!-- Footer -->
 	<footer class="z-[1001] border-t border-white/10 bg-black/40 p-3 text-[0.75em] print:hidden flex flex-col sm:flex-row justify-between items-center px-6 gap-2">
 		<div class="flex gap-4">
 			<span>📧 <a href="mailto:contact@abhyast.in" class="font-bold text-[#4bc2c4] no-underline hover:underline">contact@abhyast.in</a></span>
